@@ -53,3 +53,4 @@ Run these commands in order to start the project: <br><br>
 * <b> Create_tables_sql_queiries_etl.ipynb </b> - This Jupyter Python 3 script runs the create_tables.py, sql_queiries.py & etl.py scripts defined above
 
 
+
