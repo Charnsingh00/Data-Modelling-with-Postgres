@@ -8,27 +8,15 @@ from sql_queries import *
 def process_song_file(cur, filepath):
     
     # open song file
-    df = pd.read_json(filepath, typ='series')
+    df = pd.read_json(filepath, lines=True)
 
     # insert song record
     song_data = df[['song_id','title','artist_id', 'year', 'duration']]
-  
-    # check for song_id duplicates
-    cur.execute(song_select, (song_data[['song_id']]))
-    results = cur.fetchone()
-    
-    if results[0] == 0:
-        cur.execute(song_table_insert, song_data)
+    cur.execute(song_table_insert, song_data)
         
     # insert artist record
     artist_data = df[['artist_id','artist_name','artist_location', 'artist_latitude', 'artist_longitude']]
-    
-    # check for artist_id duplicates
-    cur.execute(artist_select, (artist_data[['artist_id']]))
-    results = cur.fetchone()
-   
-    if results[0] == 0:
-        cur.execute(artist_table_insert, artist_data)
+    cur.execute(artist_table_insert, artist_data)
     
         
 def process_log_file(cur, filepath):
@@ -37,31 +25,21 @@ def process_log_file(cur, filepath):
 
     # filter by NextSong action
     df = df[df['page'] == 'NextSong']
+    
     # convert timestamp column to datetime
-    df['ts'] = pd.to_datetime(df['ts'], unit='ms')
+    tst = pd.to_datetime(df['ts'], unit='ms')
     
     # insert time data records
-    time_data = [df['ts'], df['ts'].dt.hour, df['ts'].dt.day,
-                 df['ts'].dt.weekofyear, df['ts'].dt.month,
-                 df['ts'].dt.year,df['ts'].dt.weekday]
-    column_labels = ['ts', 'hour', 'day', 'week of year', 'month', 'year', 'weekday']
+    time_data = [tst, tst.dt.hour, tst.dt.day,
+                 tst.dt.weekofyear, tst.dt.month,
+                 tst.dt.year,tst.dt.weekday]
+    column_labels = ['tst', 'hour', 'day', 'week of year', 'month', 'year', 'weekday']
     
-    assert isinstance(time_data, list), 'time_data should be a list'
-    assert isinstance(column_labels, list), 'column_labels should be a list'
+    time_df = pd.DataFrame({k:v for k, v in zip(column_labels, time_data)})
 
+    for _, row in time_df.iterrows():
 
-    dictionary = dict(zip(column_labels, time_data))
-    time_df = pd.DataFrame.from_dict(dictionary)
-    assert isinstance(time_df, pd.DataFrame), 'time_df should be a dataframe'
-    
-    
-    for i, row in time_df.iterrows():
-        # check for start_time duplicates
-        cur.execute(time_select, [row.ts])
-        results = cur.fetchone()
-        
-        if results[0] == 0: 
-            cur.execute(time_table_insert, list(row))
+    cur.execute(time_table_insert, list(row))
         
 
     # load user table
@@ -69,27 +47,20 @@ def process_log_file(cur, filepath):
     
     # insert user records
     for i, row in user_df.iterrows():
-        # check for user_id duplicates
-        cur.execute(user_select, (str(row.userId),))
-        results = cur.fetchone()
-        
-        if results[0] == 0:
             cur.execute(user_table_insert, row)
 
     # insert songplay records
     for index, row in df.iterrows():
         
         # get songid and artistid from song and artist tables
-        cur.execute(song_select_by_song_id_artist_id, (row.song, row.artist, row.length))
-        results = cur.fetchone()
-        
-        if results:
-            songid, artistid = results
+        results = cur.execute(song_select_by_song_id_artist_id, (row.song, row.artist, row.length))
+songid, artistid = results
+        if results
         else:
-            songid, artistid = None, None
+        None, None
 
         # insert songplay record
-        songplay_data = (row.ts, row.userId, row.level, songid, artistid, row.sessionId, row.location, row.userAgent)
+        songplay_data = (time_df.tst[index], row.userId, row.level, songid, artistid, row.sessionId, row.location, row.userAgent)
         cur.execute(songplay_table_insert, songplay_data)
       
     
@@ -119,7 +90,6 @@ def main():
     process_data(cur, conn, filepath='data/song_data', func=process_song_file)
     process_data(cur, conn, filepath='data/log_data', func=process_log_file)
  
-    cur.close()
     conn.close()
 
 
